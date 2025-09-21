@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}BookSwap{% endblock %}</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --border: #d9dee7;
+            --text: #1f2933;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        header {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 1.25rem;
+        }
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+        }
+        .brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--accent-dark);
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 1rem;
+            margin: 0;
+            padding: 0;
+            align-items: center;
+        }
+        nav a.button, .button {
+            background: var(--accent);
+            color: #fff;
+            padding: 0.55rem 1rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 600;
+        }
+        nav a.button:hover, .button:hover {
+            background: var(--accent-dark);
+            text-decoration: none;
+        }
+        main {
+            padding: 2rem 0 4rem;
+        }
+        footer {
+            border-top: 1px solid var(--border);
+            text-align: center;
+            padding: 1.5rem 0;
+            background: #fff;
+            font-size: 0.9rem;
+        }
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem auto 0;
+            max-width: 1100px;
+            padding: 0 1.25rem;
+        }
+        .message {
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+        }
+        .message.info { border-color: #1c64f2; background: #ebf2ff; }
+        .message.success { border-color: #16a34a; background: #ecfdf5; }
+        .message.warning { border-color: #f59e0b; background: #fff7ed; }
+        .message.error { border-color: #dc2626; background: #fef2f2; }
+        form .form-control, form textarea {
+            width: 100%;
+            border-radius: 0.65rem;
+            border: 1px solid var(--border);
+            padding: 0.6rem 0.75rem;
+            font-size: 1rem;
+        }
+        form label { font-weight: 600; display: block; margin-bottom: 0.35rem; }
+        form .form-check-input { width: auto; margin-right: 0.5rem; }
+        form .field-group { margin-bottom: 1.2rem; }
+        .form-help { font-size: 0.85rem; color: #52606d; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08); }
+        .card img {
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            object-fit: cover;
+        }
+        .card-body { padding: 1rem 1.1rem 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; }
+        .card-title { font-size: 1.1rem; margin: 0; }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            background: var(--card-bg);
+            border-radius: 1rem;
+            border: 1px dashed var(--border);
+        }
+        .breadcrumbs { font-size: 0.95rem; margin-bottom: 1rem; color: #52606d; }
+        .section-title { font-size: 1.8rem; margin-bottom: 1rem; }
+        @media (max-width: 640px) {
+            nav ul { flex-wrap: wrap; gap: 0.75rem; }
+            header { position: static; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="container nav">
+        <a class="brand" href="{% url 'books:book-list' %}">BookSwap</a>
+        <nav>
+            <ul>
+                <li><a href="{% url 'books:book-list' %}">Browse</a></li>
+                <li><a href="{% url 'books:ai-advice' %}">AI advice</a></li>
+                {% if request.user.is_authenticated %}
+                    <li><a class="button" href="{% url 'books:book-create' %}">+ New listing</a></li>
+                    <li><a href="{% url 'logout' %}">Sign out</a></li>
+                {% else %}
+                    <li><a href="{% url 'login' %}">Sign in</a></li>
+                    <li><a class="button" href="{% url 'signup' %}">Join now</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</header>
+
+{% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<main>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        Built with Django templates for effortless book sharing.
+    </div>
+</footer>
+</body>
+</html>

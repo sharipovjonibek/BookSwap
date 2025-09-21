@@ -1,0 +1,80 @@
+{% extends "books/base.html" %}
+
+{% block title %}Browse books · BookSwap{% endblock %}
+
+{% block content %}
+<section>
+    <h1 class="section-title">Find your next read</h1>
+    <p style="max-width: 620px; color: #52606d; margin-bottom: 1.5rem;">
+        Search by keyword, author or title. Add your books to connect with readers who would love them next.
+    </p>
+    <form method="get" class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 2rem;">
+        <div class="field-group">
+            {{ search_form.query.label_tag }}
+            {{ search_form.query }}
+        </div>
+        <div class="field-group" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+                {{ search_form.titles.label_tag }}
+                {{ search_form.titles }}
+                <div class="form-help">{{ search_form.titles.help_text }}</div>
+            </div>
+            <div>
+                {{ search_form.authors.label_tag }}
+                {{ search_form.authors }}
+                <div class="form-help">{{ search_form.authors.help_text }}</div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button type="submit" class="button">Search</button>
+            {% if has_filters %}
+                <a class="button" style="background: #9ca3af;" href="{% url 'books:book-list' %}">Clear filters</a>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
+{% if books %}
+    <div class="grid">
+        {% for book in books %}
+            <article class="card">
+                {% if book.image %}
+                    <img src="{{ book.image.url }}" alt="{{ book.title }} cover">
+                {% else %}
+                    <img src="https://placehold.co/400x520?text=No+image" alt="No cover available">
+                {% endif %}
+                <div class="card-body">
+                    <h2 class="card-title"><a href="{% url 'books:book-detail' book.pk %}">{{ book.title }}</a></h2>
+                    {% if book.author %}<div style="color:#52606d;">by {{ book.author }}</div>{% endif %}
+                    <div style="font-size:0.95rem; color:#52606d;">{{ book.location }}</div>
+                    <p style="flex:1; color:#334155;">{{ book.description|truncatechars:120 }}</p>
+                    <a class="button" style="align-self:flex-start;" href="{% url 'books:book-detail' book.pk %}">View details</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <h2>No listings yet</h2>
+        <p>
+            {% if has_filters %}
+                We couldn't find any books that match your filters. Try adjusting your search.
+            {% else %}
+                Be the first to share a book! Sign in and add a listing to start the exchange.
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+
+{% if is_paginated %}
+    <nav aria-label="Pagination" style="margin-top: 2rem; display:flex; justify-content:center; gap:0.5rem;">
+        {% if page_obj.has_previous %}
+            <a class="button" style="background:#e2e8f0; color:#1f2933;" href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span style="align-self:center; font-weight:600;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a class="button" style="background:#e2e8f0; color:#1f2933;" href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+    </nav>
+{% endif %}
+{% endblock %}

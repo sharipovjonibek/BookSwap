@@ -8,11 +8,7 @@ certifi==2025.8.3
 charset-normalizer==3.4.3
 dj-database-url==3.0.1
 Django==5.0.7
-django-cors-headers==4.4.0
 django-storages==1.14.6
-djangorestframework==3.15.2
-djangorestframework-simplejwt==5.3.1
-drf-spectacular==0.27.2
 google-auth==2.40.3
 google-genai==0.3.0
 gunicorn==23.0.0

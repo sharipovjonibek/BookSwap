@@ -1,173 +1,238 @@
+from __future__ import annotations
 
-from typing import List
+from typing import Iterable, List, Tuple
+from urllib.parse import urlencode
+
+from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.views import LoginView
 from django.db.models import Q
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly,AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from drf_spectacular.utils import (
-    extend_schema, extend_schema_view, OpenApiParameter, OpenApiTypes
+from django.shortcuts import redirect
+from django.urls import reverse, reverse_lazy
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    FormView,
+    ListView,
+    UpdateView,
 )
 
-from .models import Book
-from .serializers import (
-    BookSerializer,
-    AIAdviceResponseSerializer,
-)
 from .ai import get_ai_advice
-
-def _split_params(values) -> List[str]:
-    """Accepts repeated params or comma-separated; returns cleaned list."""
-    out: List[str] = []
-    if not values:
-        return out
-    raw_list = values if isinstance(values, list) else [values]
-    for v in raw_list:
-        if not v:
-            continue
-        parts = [p.strip() for p in str(v).split(",")]
-        for p in parts:
-            if p:
-                out.append(p)
-    return out
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-
-@extend_schema_view(
-    list=extend_schema(
-        tags=["Books"],
-        
-        summary="List books (ads)",
-        description=(
-            "Public list of active ads. Filters:"
-            "\n- ?q= full-text (title/author/description)"
-            "\n- ?titles= (repeat or comma-separated)"
-            "\n- ?authors= (repeat or comma-separated)"
-        ),
-        parameters=[
-            OpenApiParameter("q", OpenApiTypes.STR, required=False, description="Full-text query"),
-            OpenApiParameter("titles", OpenApiTypes.STR, required=False, many=True, description="Title filters"),
-            OpenApiParameter("authors", OpenApiTypes.STR, required=False, many=True, description="Author filters"),
-        ],
-        responses={200: BookSerializer(many=True)},
-    ),
-    create=extend_schema(tags=["Books"], summary="Create a book ad", request=BookSerializer, responses={201: BookSerializer}),
-    retrieve=extend_schema(tags=["Books"], summary="Retrieve by ID", responses=BookSerializer),
-    partial_update=extend_schema(tags=["Books"], summary="Update (partial)", request=BookSerializer, responses=BookSerializer),
-    destroy=extend_schema(tags=["Books"], summary="Delete", responses={204: None}),
-)
+from .forms import AIAdviceForm, BookForm, BookSearchForm, SignUpForm
+from .models import Book
 
 
-class BookViewSet(viewsets.ModelViewSet):
+def _match_books(data: dict) -> Tuple[Iterable[Book], List[str], List[str]]:
+    topics = [str(t).strip().lower() for t in data.get("topics", []) if str(t).strip()]
+    suggestions = data.get("suggested_books", []) or []
+
+    cond = Q()
+    titles: List[str] = []
+    authors: List[str] = []
+    has_filters = False
+
+    for topic in topics:
+        cond |= (
+            Q(title__icontains=topic)
+            | Q(description__icontains=topic)
+            | Q(author__icontains=topic)
+        )
+        has_filters = True
+
+    for suggestion in suggestions:
+        title = str(suggestion.get("title", "")).strip()
+        author = str(suggestion.get("author", "")).strip()
+        if title:
+            cond |= Q(title__icontains=title)
+            titles.append(title)
+            has_filters = True
+        if author:
+            cond |= Q(author__icontains=author)
+            authors.append(author)
+            has_filters = True
+
     queryset = Book.objects.filter(is_active=True).select_related("owner")
-    serializer_class = BookSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    parser_classes = (MultiPartParser, FormParser, JSONParser) 
+    if has_filters:
+        queryset = queryset.filter(cond).distinct()
+    else:
+        queryset = queryset.none()
+
+    return queryset[:20], titles, authors
+
+
+class BookListView(ListView):
+    model = Book
+    template_name = "books/book_list.html"
+    context_object_name = "books"
+    paginate_by = 12
+
     def get_queryset(self):
-        qs = super().get_queryset()
-        q = self.request.query_params.get("q", "").strip()
-        titles = _split_params(self.request.query_params.getlist("titles"))
-        authors = _split_params(self.request.query_params.getlist("authors"))
+        queryset = Book.objects.filter(is_active=True).select_related("owner")
+        queryset = queryset.order_by("-created_at")
 
-        cond = Q()
-        if q:
-            cond &= (Q(title__icontains=q) | Q(author__icontains=q) | Q(description__icontains=q))
+        self.search_form = BookSearchForm(self.request.GET or None)
+        self.has_filters = False
+
+        if self.search_form.is_valid():
+            data = self.search_form.cleaned_data
+            query = data.get("query", "").strip()
+            titles = self.search_form.parsed_titles()
+            authors = self.search_form.parsed_authors()
+
+            filters = Q()
+            if query:
+                filters &= (
+                    Q(title__icontains=query)
+                    | Q(author__icontains=query)
+                    | Q(description__icontains=query)
+                )
+                self.has_filters = True
+            if titles:
+                title_q = Q()
+                for title in titles:
+                    title_q |= Q(title__icontains=title)
+                filters &= title_q
+                self.has_filters = True
+            if authors:
+                author_q = Q()
+                for author in authors:
+                    author_q |= Q(author__icontains=author)
+                filters &= author_q
+                self.has_filters = True
+
+            if self.has_filters:
+                queryset = queryset.filter(filters).distinct()
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_form"] = getattr(self, "search_form", BookSearchForm())
+        context["has_filters"] = getattr(self, "has_filters", False)
+        params = self.request.GET.copy()
+        if "page" in params:
+            params.pop("page")
+        context["query_string"] = params.urlencode()
+        return context
+
+
+class BookDetailView(DetailView):
+    model = Book
+    template_name = "books/book_detail.html"
+    context_object_name = "book"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_owner"] = (
+            self.request.user.is_authenticated and self.object.owner_id == self.request.user.id
+        )
+        return context
+
+
+class OwnerRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    def test_func(self):
+        obj = self.get_object()
+        return obj.owner_id == self.request.user.id
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            messages.error(self.request, "You do not have permission to modify this listing.")
+            return redirect("books:book-detail", pk=self.get_object().pk)
+        return super().handle_no_permission()
+
+
+class BookCreateView(LoginRequiredMixin, CreateView):
+    model = Book
+    form_class = BookForm
+    template_name = "books/book_form.html"
+
+    def form_valid(self, form):
+        form.instance.owner = self.request.user
+        response = super().form_valid(form)
+        messages.success(self.request, "Your book listing has been created.")
+        return response
+
+    def get_success_url(self):
+        return reverse("books:book-detail", kwargs={"pk": self.object.pk})
+
+
+class BookUpdateView(OwnerRequiredMixin, UpdateView):
+    model = Book
+    form_class = BookForm
+    template_name = "books/book_form.html"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Your book listing has been updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse("books:book-detail", kwargs={"pk": self.object.pk})
+
+
+class BookDeleteView(OwnerRequiredMixin, DeleteView):
+    model = Book
+    template_name = "books/book_confirm_delete.html"
+    success_url = reverse_lazy("books:book-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "The book listing was removed.")
+        return super().delete(request, *args, **kwargs)
+
+
+class AIAdviceView(FormView):
+    template_name = "books/ai_advice.html"
+    form_class = AIAdviceForm
+    success_url = reverse_lazy("books:ai-advice")
+
+    def form_valid(self, form):
+        prompt = form.cleaned_data["prompt"]
+        ai_data = get_ai_advice(prompt)
+        matched_books, titles, authors = _match_books(ai_data)
+
+        if ai_data.get("_warning"):
+            messages.warning(self.request, ai_data["_warning"])
+
+        if not matched_books:
+            messages.info(self.request, "We could not find exact matches, but here are some ideas to explore.")
+
+        query_params = {}
         if titles:
-            t_q = Q()
-            for t in titles:
-                t_q |= Q(title__icontains=t)
-            cond &= t_q
+            query_params["titles"] = ",".join(titles)
         if authors:
-            a_q = Q()
-            for a in authors:
-                a_q |= Q(author__icontains=a)
-            cond &= a_q
+            query_params["authors"] = ",".join(authors)
+        search_url = None
+        if query_params:
+            search_url = f"{reverse('books:book-list')}?{urlencode(query_params)}"
 
-        if cond:
-            qs = qs.filter(cond).distinct()
-        return qs
-
-    @extend_schema(
-        tags=["Books"],
-        summary="Search books (same filters as list)",
-        parameters=[
-            OpenApiParameter("q", OpenApiTypes.STR, required=False),
-            OpenApiParameter("titles", OpenApiTypes.STR, required=False, many=True),
-            OpenApiParameter("authors", OpenApiTypes.STR, required=False, many=True),
-        ],
-        responses={200: BookSerializer(many=True)},
-    )
-    @action(detail=False, methods=["get"], url_path="search")
-    def search(self, request, *args, **kwargs):
-        qs = self.get_queryset()
-        page = self.paginate_queryset(qs)
-        ser = self.get_serializer(page or qs, many=True, context={"request": request})
-        if page is not None:
-            return self.get_paginated_response(ser.data)
-        return Response(ser.data)
+        context = self.get_context_data(
+            form=form,
+            ai_data=ai_data,
+            matched_books=matched_books,
+            suggested_titles=titles,
+            suggested_authors=authors,
+            search_url=search_url,
+        )
+        return self.render_to_response(context)
 
 
-@extend_schema(
-    tags=["AI"],
-    summary="AI book advice (Gemini) → filter & results",
-    description=(
-        "Send a natural-language `prompt`. Returns: `ai`, `matched_books`, and `filter_query`"
-        " for frontend redirect to `/api/books/?titles=...&authors=...`."
-    ),
-    parameters=[
-        OpenApiParameter("prompt", OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False,
-                         description="User problem/goal; use body in POST for JSON."),
-    ],
-    responses={200: AIAdviceResponseSerializer},
-)
-class AIAdviceView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+class SignUpView(FormView):
+    form_class = SignUpForm
+    template_name = "registration/signup.html"
+    success_url = reverse_lazy("books:book-list")
 
-    def _match(self, data):
-        topics = [t.lower() for t in data.get("topics", [])]
-        suggestions = data.get("suggested_books", [])
-
-        q_objects = Q()
-        titles: List[str] = []
-        authors: List[str] = []
-
-        for t in topics:
-            q_objects |= Q(title__icontains=t) | Q(description__icontains=t) | Q(author__icontains=t)
-        for s in suggestions:
-            title = (s.get("title") or "").strip()
-            author = (s.get("author") or "").strip()
-            if title:
-                q_objects |= Q(title__icontains=title)
-                titles.append(title)
-            if author:
-                q_objects |= Q(author__icontains=author)
-                authors.append(author)
-
-        matched = Book.objects.filter(is_active=True).filter(q_objects).distinct()[:50]
-        return matched, titles, authors
-
-    def _respond(self, prompt: str):
-        if not prompt:
-            return Response({"detail": "Provide a 'prompt' in query (?prompt=) or POST JSON body."}, status=400)
-        data = get_ai_advice(prompt)
-        matched, titles, authors = self._match(data)
-        ser = BookSerializer(matched, many=True, context={"request": None})
-        return Response({"ai": data, "matched_books": ser.data, "filter_query": {"titles": titles, "authors": authors}})
-
-    def get(self, request, *args, **kwargs):
-        prompt = request.query_params.get("prompt", "").strip()
-        return self._respond(prompt)
-
-    def post(self, request, *args, **kwargs):
-        prompt = (request.data or {}).get("prompt", "").strip()
-        return self._respond(prompt)
+    def form_valid(self, form):
+        user = form.save()
+        login(self.request, user)
+        messages.success(self.request, "Welcome to BookSwap! Your account is ready.")
+        return super().form_valid(form)
 
 
-class HealthView(APIView):
-    """Simple health-check endpoint for deployment sanity."""
-    authentication_classes = []
-    permission_classes = []
+class BookSwapLoginView(LoginView):
+    template_name = "registration/login.html"
 
-    def get(self, request, *args, **kwargs):
-        return Response({"status": "ok"})
+    def form_valid(self, form):
+        messages.success(self.request, "Welcome back to BookSwap!")
+        return super().form_valid(form)

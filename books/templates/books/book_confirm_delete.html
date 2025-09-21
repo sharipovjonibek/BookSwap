@@ -1,0 +1,18 @@
+{% extends "books/base.html" %}
+
+{% block title %}Delete {{ object.title }} · BookSwap{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'books:book-detail' object.pk %}">← Back to detail</a></div>
+<div class="card" style="padding: 2rem; max-width: 640px; margin: 0 auto; text-align: center;">
+    <h1 class="section-title">Remove this listing?</h1>
+    <p style="color:#52606d; margin-bottom: 2rem;">This action cannot be undone. Other readers will no longer see <strong>{{ object.title }}</strong> in the catalogue.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div style="display:flex; gap:0.75rem; justify-content:center;">
+            <button type="submit" class="button" style="background:#ef4444;">Yes, delete it</button>
+            <a class="button" style="background:#9ca3af;" href="{% url 'books:book-detail' object.pk %}">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

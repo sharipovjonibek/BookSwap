@@ -25,18 +25,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # 3rd party
-    "rest_framework",
-    "rest_framework.authtoken",
-    "drf_spectacular",
-    "corsheaders",
-
     # Local apps
     "books",
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",   # serve static files
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -116,47 +109,17 @@ if os.getenv("AWS_STORAGE_BUCKET_NAME"):
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --------------------------------------------------------------------------------------
-# DRF / Auth
+# Authentication redirects
 # --------------------------------------------------------------------------------------
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-    ),
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_PARSER_CLASSES": (
-        "rest_framework.parsers.JSONParser",
-        "rest_framework.parsers.FormParser",
-        "rest_framework.parsers.MultiPartParser",
-    ),
-}
+LOGIN_REDIRECT_URL = "books:book-list"
+LOGOUT_REDIRECT_URL = "books:book-list"
 
-SPECTACULAR_SETTINGS = {
-    "TITLE": "BookX API",
-    "DESCRIPTION": "Book exchange + AI advisor (v4, hardened)",
-    "VERSION": "4.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-    "COMPONENT_SPLIT_REQUEST": True,
-    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
-}
-
-# --------------------------------------------------------------------------------------
-# CORS / CSRF
-# - CORS for ALL (as requested)
-# - CSRF trusted for Railway + optional frontend domain(s)
-# --------------------------------------------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True  # if you need cookies across origins
-
-# Comma-separated list of extra trusted origins from env, e.g. "https://yourdomain.com,https://www.yourdomain.com"
+# Allow configuring trusted hosts for CSRF when deployed behind HTTPS
 _extra_csrf = [o.strip() for o in os.getenv("CSRF_EXTRA_TRUSTED", "").split(",") if o.strip()]
 CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app",
     "https://railway.app",
-    # add your custom domains here or via CSRF_EXTRA_TRUSTED env
-    *[o for o in _extra_csrf],
+    *_extra_csrf,
 ]
 
 # --------------------------------------------------------------------------------------

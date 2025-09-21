@@ -1,0 +1,29 @@
+{% extends "books/base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.title }}{% else %}Create listing{% endif %} · BookSwap{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'books:book-list' %}">← Back to listings</a></div>
+<div class="card" style="padding: 1.75rem; max-width: 760px; margin: 0 auto;">
+    <h1 class="section-title" style="margin-bottom: 0.5rem;">{% if object %}Edit listing{% else %}Create a book listing{% endif %}</h1>
+    <p style="color:#52606d; margin-bottom: 2rem;">Share key details so readers know what makes this book special.</p>
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            <div class="field-group">
+                <label for="id_{{ field.name }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}
+                    <div style="color:#dc2626; font-size:0.9rem;">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div style="display:flex; gap:0.75rem;">
+            <button type="submit" class="button">{% if object %}Save changes{% else %}Publish listing{% endif %}</button>
+            <a class="button" style="background:#9ca3af;" href="{% if object %}{% url 'books:book-detail' object.pk %}{% else %}{% url 'books:book-list' %}{% endif %}">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "books/base.html" %}
+
+{% block title %}Sign in · BookSwap{% endblock %}
+
+{% block content %}
+<div class="card" style="padding: 1.75rem; max-width: 520px; margin: 0 auto;">
+    <h1 class="section-title" style="margin-bottom: 1rem;">Welcome back</h1>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            <div class="field-group">
+                <label for="id_{{ field.name }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <div style="color:#dc2626; font-size:0.9rem;">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="button">Sign in</button>
+    </form>
+    <p style="margin-top:1.5rem; color:#52606d;">Don't have an account yet? <a href="{% url 'signup' %}">Create one now</a>.</p>
+</div>
+{% endblock %}
