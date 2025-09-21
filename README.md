@@ -9,6 +9,18 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 
+### Automatic superuser on Railway
+
+Set the following environment variables in Railway (or copy them into your `.env` locally) and the `ensure_superuser` management command will provision the account on every deploy:
+
+```
+DJANGO_SUPERUSER_USERNAME=<your-admin-username>
+DJANGO_SUPERUSER_EMAIL=<your-admin-email>
+DJANGO_SUPERUSER_PASSWORD=<your-strong-password>
+```
+
+If you leave the password empty, a secure password is generated and printed to the deployment logs.
+
 Docs: http://127.0.0.1:8000/api/docs/
 Health: http://127.0.0.1:8000/api/health/
 
