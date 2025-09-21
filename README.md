@@ -21,6 +21,8 @@ DJANGO_SUPERUSER_PASSWORD=<your-strong-password>
 
 If you leave the password empty, a secure password is generated and printed to the deployment logs.
 
+Railway injects the HTTP port via the `PORT` environment variable; the Procfile uses it automatically (falling back to `8000` when you run the command locally).
+
 Docs: http://127.0.0.1:8000/api/docs/
 Health: http://127.0.0.1:8000/api/health/
 
