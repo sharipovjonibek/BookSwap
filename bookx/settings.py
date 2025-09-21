@@ -79,13 +79,20 @@ WSGI_APPLICATION = "bookx.wsgi.application"
 # Database (Railway provides DATABASE_URL)
 # Fallback to sqlite locally if env is absent
 # --------------------------------------------------------------------------------------
+import dj_database_url
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 DATABASES = {
     "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        default="postgresql://postgres:yrmxBKmLUHjayPonmSKJfpXZuDNslhPA@switchyard.proxy.rlwy.net:53108/railway",
         conn_max_age=600,
-        ssl_require=False,  # Railway Postgres usually works without forcing SSL; set True if needed
+        ssl_require=False,  # use True if Railway requires SSL
     )
 }
+
 
 AUTH_PASSWORD_VALIDATORS = []  # keep simple for now; add validators in production if needed
 
