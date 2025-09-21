@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 import dj_database_url
 
 # --------------------------------------------------------------------------------------
@@ -8,17 +9,20 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure")
-DEBUG = True  # in dev
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes"}
 
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"  # keep this
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Use the simple storage in DEBUG so admin loads without collectstatic
+# When DEBUG=False we rely on WhiteNoise's manifest storage for hashed assets.
+# In DEBUG (local dev) use the simple storage backend so the admin works without
+# running collectstatic. ``WHITENOISE_MANIFEST_STRICT`` ensures production keeps
+# serving files even if the manifest gets out of sync during a deploy.
 if DEBUG:
     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 else:
-    # if you use whitenoise in prod, keep this line
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    WHITENOISE_MANIFEST_STRICT = False
 
 # Accept everything in dev; set explicit domains in prod if you want stricter control
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
@@ -109,10 +113,6 @@ USE_TZ = True
 # - Static via WhiteNoise
 # - Media: local by default; auto-switch to S3 when AWS env vars are set
 # --------------------------------------------------------------------------------------
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
