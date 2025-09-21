@@ -1,0 +1,67 @@
+{% extends "books/base.html" %}
+
+{% block title %}AI book advisor · BookSwap{% endblock %}
+
+{% block content %}
+<div class="card" style="padding: 1.75rem; max-width: 840px; margin: 0 auto 2rem;">
+    <h1 class="section-title">Let our AI librarian help</h1>
+    <p style="color:#52606d;">Describe what you or your friend need. We will suggest themes, books and show matches from the community library.</p>
+    <form method="post" style="margin-top: 1.5rem; display:flex; flex-direction:column; gap:1.5rem;">
+        {% csrf_token %}
+        <div class="field-group">
+            {{ form.prompt.label_tag }}
+            {{ form.prompt }}
+            {% if form.prompt.errors %}
+                {% for error in form.prompt.errors %}
+                    <div style="color:#dc2626; font-size:0.9rem;">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <button type="submit" class="button" style="align-self:flex-start;">Ask for advice</button>
+    </form>
+</div>
+
+{% if ai_data %}
+    <section style="display:grid; gap:1.75rem;">
+        <div class="card" style="padding:1.5rem;">
+            <h2 style="margin-top:0;">AI suggestions</h2>
+            {% if ai_data.suggested_books %}
+                <ul style="padding-left:1rem; line-height:1.7;">
+                    {% for item in ai_data.suggested_books %}
+                        <li><strong>{{ item.title }}</strong>{% if item.author %} by {{ item.author }}{% endif %}{% if item.why %} — {{ item.why }}{% endif %}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color:#52606d;">No direct matches yet – try a more detailed prompt.</p>
+            {% endif %}
+        </div>
+
+        <div class="card" style="padding:1.5rem;">
+            <h2 style="margin-top:0;">Books you can swap now</h2>
+            {% if matched_books %}
+                <div class="grid">
+                    {% for book in matched_books %}
+                        <article class="card" style="border-color:#e5e7eb;">
+                            {% if book.image %}
+                                <img src="{{ book.image.url }}" alt="{{ book.title }} cover">
+                            {% endif %}
+                            <div class="card-body">
+                                <h3 class="card-title"><a href="{% url 'books:book-detail' book.pk %}">{{ book.title }}</a></h3>
+                                {% if book.author %}<div style="color:#52606d;">by {{ book.author }}</div>{% endif %}
+                                <div style="font-size:0.95rem; color:#52606d;">{{ book.location }}</div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color:#52606d;">No active listings matched yet. Try refining your prompt or <a href="{% url 'books:book-list' %}">browse all books</a>.</p>
+            {% endif %}
+            {% if search_url %}
+                <p style="margin-top:1.25rem;">
+                    <a class="button" href="{{ search_url }}">Open these filters in the catalogue</a>
+                </p>
+            {% endif %}
+        </div>
+    </section>
+{% endif %}
+{% endblock %}

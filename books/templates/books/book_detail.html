@@ -1,0 +1,42 @@
+{% extends "books/base.html" %}
+
+{% block title %}{{ book.title }} · BookSwap{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'books:book-list' %}">← Back to listings</a></div>
+<div class="card" style="padding: 1.5rem; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+    <div>
+        {% if book.image %}
+            <img src="{{ book.image.url }}" alt="{{ book.title }} cover" style="width:100%; border-radius: 1rem; border:1px solid var(--border);">
+        {% else %}
+            <img src="https://placehold.co/600x800?text=No+image" alt="No cover available" style="width:100%; border-radius: 1rem; border:1px solid var(--border);">
+        {% endif %}
+    </div>
+    <div>
+        <h1 style="font-size: 2rem; margin-top:0;">{{ book.title }}</h1>
+        {% if book.author %}
+            <p style="color:#52606d; margin-top:0.25rem;">by {{ book.author }}</p>
+        {% endif %}
+        <p style="margin-top: 0.5rem; font-size:1.05rem; line-height:1.6;">{{ book.description|linebreaks }}</p>
+        <dl style="display:grid; grid-template-columns:max-content 1fr; gap:0.4rem 1rem; margin-top:1.5rem;">
+            <dt style="font-weight:600;">Owner</dt>
+            <dd>{{ book.owner.username }}</dd>
+            {% if book.phone_number %}
+                <dt style="font-weight:600;">Phone</dt>
+                <dd><a href="tel:{{ book.phone_number }}">{{ book.phone_number }}</a></dd>
+            {% endif %}
+            <dt style="font-weight:600;">Location</dt>
+            <dd>{{ book.location }}</dd>
+            <dt style="font-weight:600;">Listed</dt>
+            <dd>{{ book.created_at|date:"F j, Y" }}</dd>
+        </dl>
+        <div style="margin-top:1.5rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a class="button" href="{% url 'books:ai-advice' %}">Need recommendations?</a>
+            {% if is_owner %}
+                <a class="button" href="{% url 'books:book-update' book.pk %}">Edit listing</a>
+                <a class="button" style="background:#ef4444;" href="{% url 'books:book-delete' book.pk %}">Delete</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
