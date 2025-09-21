@@ -8,7 +8,17 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure")
-DEBUG = os.getenv("DEBUG", "False").lower() in {"1", "true", "yes"}
+DEBUG = True  # in dev
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # keep this
+
+# Use the simple storage in DEBUG so admin loads without collectstatic
+if DEBUG:
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+else:
+    # if you use whitenoise in prod, keep this line
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Accept everything in dev; set explicit domains in prod if you want stricter control
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
@@ -98,6 +108,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
 
 # Optional S3 media (enable by setting AWS_STORAGE_BUCKET_NAME)
 if os.getenv("AWS_STORAGE_BUCKET_NAME"):
